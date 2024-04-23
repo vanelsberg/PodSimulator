@@ -2,14 +2,14 @@
 ## explicit
 github.com/davecgh/go-spew/spew
 # github.com/google/go-cmp v0.5.4
-## explicit
+## explicit; go 1.8
 github.com/google/go-cmp/cmp
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
 github.com/google/go-cmp/cmp/internal/value
 # github.com/gorilla/websocket v1.4.2
-## explicit
+## explicit; go 1.12
 github.com/gorilla/websocket
 # github.com/jacobsa/crypto v0.0.0-20190317225127-9f44e2d11115
 ## explicit
@@ -24,9 +24,8 @@ github.com/jacobsa/crypto/common
 # github.com/jacobsa/reqtrace v0.0.0-20150505043853-245c9e0234cb
 ## explicit
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
-github.com/konsorten/go-windows-terminal-sequences
-# github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
 ## explicit
+github.com/konsorten/go-windows-terminal-sequences
 # github.com/paypal/gatt v0.0.0-20151011220935-4ae819d591cf
 ## explicit
 github.com/paypal/gatt
@@ -38,29 +37,28 @@ github.com/paypal/gatt/linux/socket
 github.com/paypal/gatt/linux/util
 github.com/paypal/gatt/xpc
 # github.com/pelletier/go-toml v1.8.1
-## explicit
+## explicit; go 1.12
 github.com/pelletier/go-toml
 # github.com/pkg/errors v0.9.1
+## explicit
 github.com/pkg/errors
 # github.com/pschlump/AesCCM v0.0.0-20160925022350-c5df73b5834e
 ## explicit
 github.com/pschlump/AesCCM
 # github.com/pschlump/godebug v1.0.1
-## explicit
+## explicit; go 1.12
 # github.com/sirupsen/logrus v1.6.0
-## explicit
+## explicit; go 1.13
 github.com/sirupsen/logrus
 # github.com/stretchr/testify v1.6.1
-## explicit
+## explicit; go 1.13
 # github.com/wmnsk/milenage v1.0.4
-## explicit
+## explicit; go 1.15
 github.com/wmnsk/milenage
-# golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
-## explicit
+# golang.org/x/crypto v0.22.0
+## explicit; go 1.18
 golang.org/x/crypto/curve25519
-# golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1
-## explicit
-golang.org/x/sys/internal/unsafeheader
+golang.org/x/crypto/curve25519/internal/field
+# golang.org/x/sys v0.19.0
+## explicit; go 1.18
 golang.org/x/sys/unix
-# gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
-## explicit
