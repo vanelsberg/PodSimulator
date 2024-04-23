@@ -2,7 +2,8 @@ package pair
 
 import (
 	"bytes"
-	"encoding/hex"
+	"crypto/ecdh"
+	"crypto/rand"
 	"errors"
 	"fmt"
 
@@ -37,9 +38,9 @@ type Pair struct {
 	pdmConf   []byte
 	sps0      []byte
 
-	curve25519LTK []byte
-	pdmID         []byte
-	podID         []byte
+	sharedSecret []byte
+	pdmID        []byte
+	podID        []byte
 
 	ltk     []byte
 	confKey []byte // key used to sign the "Conf" values
@@ -95,9 +96,6 @@ func (c *Pair) ParseSPS0(msg *message.Message) error {
 		log.Debugf("Message :%s", spew.Sdump(msg))
 		return err
 	}
-	pdmNonce := sp[sps0][1:]
-	c.pdmNonce = make([]byte, 16)
-	copy(c.pdmNonce, pdmNonce)
 
 	log.Infof("Received SPS0  %x", sp[sps0])
 	copy(c.pdmNonce, []byte(sps0))
@@ -116,11 +114,17 @@ func (c *Pair) ParseSPS1(msg *message.Message) error {
 		return err
 	}
 	log.Infof("Received SPS1  %x", sp[sps1])
-	pdmPublic := sp[sps1][:32]
-
-	c.pdmPublic = make([]byte, 32)
+	pdmPublic := sp[sps1][:64]
+	c.pdmPublic = make([]byte, 64)
 	copy(c.pdmPublic, pdmPublic)
-	c.curve25519LTK, err = curve25519.X25519(c.podPrivate, c.pdmPublic)
+	log.Infof("Pdm Public  %x", c.pdmPublic)
+
+	pdmNonce := sp[sps1][64:]
+	c.pdmNonce = make([]byte, 16)
+	copy(c.pdmNonce, pdmNonce)
+	log.Infof("Pdm Nonce  %x", c.pdmNonce)
+
+	// c.curve25519LTK, err = curve25519.X25519(c.podPrivate, c.pdmPublic)
 	if err != nil {
 		return err
 	}
@@ -227,29 +231,33 @@ func (c *Pair) LTK() ([]byte, error) {
 func (c *Pair) computeMyData() error {
 	var err error
 	c.podPrivate = make([]byte, 32)
-	c.podPublic = make([]byte, 32)
-	c.podNonce = make([]byte, 4)
-	c.podNonce, _ = hex.DecodeString("00099129")
-	/*
-		if _, err := rand.Read(podPrivateKey); err != nil {
-			return nil, nil, nil, err
-		}
-	*/
-	c.podPrivate[0] &= 248
-	c.podPrivate[31] &= 127
-	c.podPrivate[31] |= 64
-	c.podPublic, err = curve25519.X25519(c.podPrivate, curve25519.Basepoint)
+	c.podPublic = make([]byte, 64)
+	c.podNonce = make([]byte, 16)
+
+	rand.Read(c.podNonce)
+	podPrivate, _ := ecdh.P256().GenerateKey(rand.Reader)
+	c.podPrivate = podPrivate.Bytes()
+	c.podPublic = podPrivate.PublicKey().Bytes()[2:]
+	log.Infof("Pod Data: %x :: %x", c.podPublic, c.podNonce)
 	return err
 
 }
 func (c *Pair) computePairData() error {
 	var err error
-	// fill in: lrtk, podConf, pdmConf, intermediarKey
-	c.curve25519LTK, err = curve25519.X25519(c.podPrivate, c.pdmPublic)
+	// fill in: lrtk, podConf, pdmConf, intermediaryKey
+	privateKey, err := ecdh.P256().NewPrivateKey(c.podPrivate)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Donna LTK: %x", c.curve25519LTK)
+	publicKey, err := ecdh.P256().NewPublicKey(c.pdmPublic)
+	if err != nil {
+		return err
+	}
+	c.sharedSecret, err = privateKey.ECDH(publicKey)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Donna LTK: %x", c.sharedSecret)
 	//first_key = data.pod_public[-4:] + data.pdm_public[-4:] + data.pod_nonce[-4:] + data.pdm_nonce[-4:]
 	firstKey := append(c.podPublic[28:], c.pdmPublic[28:]...)
 	firstKey = append(firstKey, c.podNonce[:]...)
@@ -261,10 +269,10 @@ func (c *Pair) computePairData() error {
 		return err
 	}
 	log.Debugf("CMAC: %d", first.Size())
-	first.Write(c.curve25519LTK)
+	first.Write(c.sharedSecret)
 	intermediarKey := first.Sum([]byte{})
 
-	log.Debugf("Intermediar key %x :: %d", intermediarKey, len(intermediarKey))
+	log.Debugf("Intermediary key %x :: %d", intermediarKey, len(intermediarKey))
 
 	// bb_data = bytes.fromhex("01") + bytes("TWIt", "ascii") + data.pod_nonce + data.pdm_nonce + bytes.fromhex("0001")
 	var bbData bytes.Buffer
