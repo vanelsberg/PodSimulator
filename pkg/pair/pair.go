@@ -7,8 +7,6 @@ import (
 	"errors"
 	"fmt"
 
-	"golang.org/x/crypto/curve25519"
-
 	"github.com/avereha/pod/pkg/message"
 
 	"github.com/davecgh/go-spew/spew"
@@ -117,12 +115,12 @@ func (c *Pair) ParseSPS1(msg *message.Message) error {
 	pdmPublic := sp[sps1][:64]
 	c.pdmPublic = make([]byte, 64)
 	copy(c.pdmPublic, pdmPublic)
-	log.Infof("Pdm Public  %x", c.pdmPublic)
 
 	pdmNonce := sp[sps1][64:]
 	c.pdmNonce = make([]byte, 16)
 	copy(c.pdmNonce, pdmNonce)
-	log.Infof("Pdm Nonce  %x", c.pdmNonce)
+	log.Debugf("Pdm Public  %x :: %d", c.pdmPublic, len(c.pdmPublic))
+	log.Debugf("Pdm Nonce   %x :: %d", c.pdmNonce, len(c.pdmNonce))
 
 	// c.curve25519LTK, err = curve25519.X25519(c.podPrivate, c.pdmPublic)
 	if err != nil {
@@ -168,22 +166,22 @@ func (c *Pair) GenerateSPS1() (*message.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Pod public %x :: %d", c.podPublic, len(c.podPublic))
-	log.Debugf("Generated SPS1: %x", msg.Payload)
+	log.Infof("Pod public %x :: %d", c.podPublic, len(c.podPublic))
+	log.Infof("Generated SPS1: %x", msg.Payload)
 	return msg, nil
 }
 
 func (c *Pair) ParseSPS2(msg *message.Message) error {
 	sp, err := parseStringByte([]string{sps2}, msg.Payload)
 	if err != nil {
-		log.Debugf("Message :%s", spew.Sdump(msg))
+		log.Infof("SPS2 Message :%s", spew.Sdump(msg))
 		return err
 	}
 
 	if !bytes.Equal(c.pdmConf, sp[sps2]) {
 		return fmt.Errorf("Invalid conf value. Expected: %x. Got %x", c.pdmConf, sp[sps2])
 	}
-	log.Debugf("Validated PDM SPS2: %x", sp[sps2])
+	log.Infof("Validated PDM SPS2: %x", sp[sps2])
 	return nil
 }
 
@@ -222,7 +220,7 @@ func (c *Pair) GenerateP0() (*message.Message, error) {
 }
 
 func (c *Pair) LTK() ([]byte, error) {
-	if c.curve25519LTK != nil {
+	if c.sharedSecret != nil {
 		return c.ltk, nil
 	}
 	return nil, errors.New("Missing  enough data to compute LTK")
@@ -238,7 +236,9 @@ func (c *Pair) computeMyData() error {
 	podPrivate, _ := ecdh.P256().GenerateKey(rand.Reader)
 	c.podPrivate = podPrivate.Bytes()
 	c.podPublic = podPrivate.PublicKey().Bytes()[2:]
-	log.Infof("Pod Data: %x :: %x", c.podPublic, c.podNonce)
+	log.Infof("Pod Private %x :: %d", c.podPrivate, len(c.podPrivate))
+	log.Infof("Pod Public  %x :: %d", c.podPublic, len(c.podPublic))
+	log.Infof("Pod Nonce   %x :: %d", c.podNonce, len(c.podNonce))
 	return err
 
 }
@@ -257,22 +257,24 @@ func (c *Pair) computePairData() error {
 	if err != nil {
 		return err
 	}
-	log.Debugf("Donna LTK: %x", c.sharedSecret)
+	log.Infof("Donna LTK %x :: %d", c.sharedSecret, len(c.sharedSecret))
+
 	//first_key = data.pod_public[-4:] + data.pdm_public[-4:] + data.pod_nonce[-4:] + data.pdm_nonce[-4:]
-	firstKey := append(c.podPublic[28:], c.pdmPublic[28:]...)
-	firstKey = append(firstKey, c.podNonce[:]...)
-	firstKey = append(firstKey, c.pdmNonce[:]...)
-	log.Debugf("First key %x :: %d", firstKey, len(firstKey))
+	var endSize = 4
+	firstKey := append(c.podPublic[len(c.podPublic)-endSize:], c.pdmPublic[len(c.pdmPublic)-endSize:]...)
+	firstKey = append(firstKey, c.podNonce[len(c.podNonce)-endSize:]...)
+	firstKey = append(firstKey, c.pdmNonce[len(c.pdmNonce)-endSize:]...)
+	log.Infof("First key %x :: %d", firstKey, len(firstKey))
 
 	first, err := cmac.New(firstKey)
 	if err != nil {
 		return err
 	}
-	log.Debugf("CMAC: %d", first.Size())
+	log.Infof("CMAC: %d", first.Size())
 	first.Write(c.sharedSecret)
 	intermediarKey := first.Sum([]byte{})
 
-	log.Debugf("Intermediary key %x :: %d", intermediarKey, len(intermediarKey))
+	log.Infof("Intermediary key %x :: %d", intermediarKey, len(intermediarKey))
 
 	// bb_data = bytes.fromhex("01") + bytes("TWIt", "ascii") + data.pod_nonce + data.pdm_nonce + bytes.fromhex("0001")
 	var bbData bytes.Buffer
@@ -288,6 +290,7 @@ func (c *Pair) computePairData() error {
 	}
 	bbHash.Write(bbData.Bytes())
 	c.confKey = bbHash.Sum([]byte{})
+	log.Infof("Conf key %x :: %d", c.ltk, len(c.ltk))
 
 	// ab_data = bytes.fromhex("02") + bytes("TWIt", "ascii") + data.pod_nonce + data.pdm_nonce + bytes.fromhex("0001")
 	var abData bytes.Buffer
@@ -303,6 +306,7 @@ func (c *Pair) computePairData() error {
 	}
 	abHash.Write(abData.Bytes())
 	c.ltk = abHash.Sum([]byte{})
+	log.Infof("Long Term key %x :: %d", c.ltk, len(c.ltk))
 
 	//  pdm_conf_data = bytes("KC_2_U", "ascii") + data.pdm_nonce + data.pod_nonce
 	var pdmConfData bytes.Buffer
@@ -315,8 +319,9 @@ func (c *Pair) computePairData() error {
 	}
 	hash.Write(pdmConfData.Bytes())
 	c.pdmConf = hash.Sum([]byte{})
+	log.Infof("PDM Conf %x :: %d", c.pdmConf, len(c.pdmConf))
 
-	//  pdm_conf_data = bytes("KC_2_U", "ascii") + data.pdm_nonce + data.pod_nonce
+	//  pdm_conf_data = bytes("KC_2_V", "ascii") + data.pdm_nonce + data.pod_nonce
 	var podConfData bytes.Buffer
 	podConfData.WriteString("KC_2_V")
 	podConfData.Write(c.podNonce) // ???
@@ -327,6 +332,7 @@ func (c *Pair) computePairData() error {
 	}
 	hash.Write(podConfData.Bytes())
 	c.podConf = hash.Sum([]byte{})
+	log.Infof("Pod Conf %x :: %d", c.podConf, len(c.podConf))
 
 	return nil
 }
