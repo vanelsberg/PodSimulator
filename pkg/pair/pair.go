@@ -239,7 +239,7 @@ func (c *Pair) computeMyData() error {
 	rand.Read(c.podNonce)
 	podPrivate, _ := ecdh.P256().GenerateKey(rand.Reader)
 	c.podPrivate = podPrivate.Bytes()
-	c.podPublic = podPrivate.PublicKey().Bytes()[2:]
+	c.podPublic = podPrivate.PublicKey().Bytes()[1:]
 	log.Infof("Pod Private %x :: %d", c.podPrivate, len(c.podPrivate))
 	log.Infof("Pod Public  %x :: %d", c.podPublic, len(c.podPublic))
 	log.Infof("Pod Nonce   %x :: %d", c.podNonce, len(c.podNonce))
