@@ -253,7 +253,7 @@ func (c *Pair) computePairData() error {
 	if err != nil {
 		return err
 	}
-	publicKey, err := ecdh.P256().NewPublicKey(c.pdmPublic)
+	publicKey, err := ecdh.P256().NewPublicKey(append([]byte{0x04}, c.pdmPublic...))
 	if err != nil {
 		return err
 	}
