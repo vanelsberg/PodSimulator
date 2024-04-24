@@ -157,6 +157,7 @@ func (c *Pair) GenerateSPS1() (*message.Message, error) {
 	var buf bytes.Buffer
 
 	buf.Write(c.podPublic)
+	buf.Write(c.podNonce)
 
 	sp := make(map[string][]byte)
 	sp[sps1] = buf.Bytes()
@@ -170,8 +171,7 @@ func (c *Pair) GenerateSPS1() (*message.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("Pod public %x :: %d", c.podPublic, len(c.podPublic))
-	log.Infof("Generated SPS1: %x", msg.Payload)
+	log.Infof("Sending SPS1: %x", msg.Payload)
 	return msg, nil
 }
 
