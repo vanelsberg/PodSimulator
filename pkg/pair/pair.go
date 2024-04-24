@@ -132,9 +132,13 @@ func (c *Pair) ParseSPS1(msg *message.Message) error {
 func (c *Pair) GenerateSPS0() (*message.Message, error) {
 	var err error
 	var buf bytes.Buffer
-
+	//000109a218
+	//0000099129
 	buf.WriteByte(0x00)
-	buf.Write(c.podNonce)
+	buf.WriteByte(0x00)
+	buf.WriteByte(0x09)
+	buf.WriteByte(0x91)
+	buf.WriteByte(0x29)
 
 	sp := make(map[string][]byte)
 	sp[sps0] = buf.Bytes()
@@ -144,7 +148,7 @@ func (c *Pair) GenerateSPS0() (*message.Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Static SPS0: %x", msg.Payload)
+	log.Debugf("Sending SPS0: %x", msg.Payload)
 	return msg, nil
 }
 
